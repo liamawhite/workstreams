@@ -19,7 +19,7 @@ func TestExists(t *testing.T) {
 		t.Fatalf("Exists(missing) = %v, %v; want false, nil", ok, err)
 	}
 
-	if _, err := Create("My Project"); err != nil {
+	if _, err := Create("My Project", ""); err != nil {
 		t.Fatal(err)
 	}
 
@@ -43,7 +43,7 @@ func TestCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.displayName, func(t *testing.T) {
 			useTemp(t)
-			dir, err := Create(tt.displayName)
+			dir, err := Create(tt.displayName, "")
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("Create(%q) error = %v, wantErr %v", tt.displayName, err, tt.wantErr)
 			}
@@ -74,17 +74,17 @@ func TestCreate(t *testing.T) {
 
 func TestCreateDuplicate(t *testing.T) {
 	useTemp(t)
-	if _, err := Create("My Project"); err != nil {
+	if _, err := Create("My Project", ""); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := Create("My Project"); err == nil {
+	if _, err := Create("My Project", ""); err == nil {
 		t.Fatal("expected error creating duplicate workspace, got nil")
 	}
 }
 
 func TestDelete(t *testing.T) {
 	useTemp(t)
-	if _, err := Create("My Project"); err != nil {
+	if _, err := Create("My Project", ""); err != nil {
 		t.Fatal(err)
 	}
 	if err := Delete("my-project"); err != nil {
@@ -114,7 +114,7 @@ func TestList(t *testing.T) {
 	}
 
 	for _, display := range []string{"Alpha Project", "Beta Project", "Gamma Project"} {
-		if _, err := Create(display); err != nil {
+		if _, err := Create(display, ""); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -142,7 +142,7 @@ func TestList(t *testing.T) {
 
 func TestReadConfig(t *testing.T) {
 	useTemp(t)
-	if _, err := Create("Hello World"); err != nil {
+	if _, err := Create("Hello World", ""); err != nil {
 		t.Fatal(err)
 	}
 	cfg, err := ReadConfig("hello-world")
