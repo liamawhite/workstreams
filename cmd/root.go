@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	templatecmd "github.com/liamawhite/workspace/cmd/template"
 	"github.com/spf13/cobra"
 )
 
@@ -32,4 +33,5 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(switchCmd)
 	rootCmd.AddCommand(removeCmd)
+	rootCmd.AddCommand(templatecmd.Cmd)
 }

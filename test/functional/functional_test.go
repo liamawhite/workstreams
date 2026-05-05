@@ -72,6 +72,21 @@ func newTestEnv(t *testing.T) *testEnv {
 	return &testEnv{homeDir: home, tmpDir: base}
 }
 
+// templateDir returns the container path to a named template under this env's home.
+func (e *testEnv) templateDir(name string) string {
+	return e.homeDir + "/workspaces/.templates/" + name
+}
+
+// writeFile writes content to a path inside the container.
+func (e *testEnv) writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	containerShell(t, fmt.Sprintf("mkdir -p %s && printf '%%s' %s > %s",
+		filepath.Dir(path),
+		"'"+strings.ReplaceAll(content, "'", `'\''`)+"'",
+		path,
+	))
+}
+
 // result holds captured output from a single command execution.
 type result struct {
 	Stdout   string
@@ -336,5 +351,194 @@ func TestRemove(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestTemplateAdd(t *testing.T) {
+	tests := []struct {
+		name    string
+		tplName string
+		wantErr bool
+	}{
+		{"happy path", "my-tpl", false},
+		{"second template", "other-tpl", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newTestEnv(t)
+			res := env.run(t, "", "template", "add", tt.tplName)
+			if tt.wantErr {
+				if res.ExitCode == 0 {
+					t.Errorf("expected error, got 0; stdout=%q", res.Stdout)
+				}
+				return
+			}
+			if res.ExitCode != 0 {
+				t.Fatalf("template add failed: %s", res.Stderr)
+			}
+			if !env.fileExists(t, env.templateDir(tt.tplName)) {
+				t.Errorf("template dir %q not created", env.templateDir(tt.tplName))
+			}
+		})
+	}
+}
+
+func TestTemplateAddDuplicate(t *testing.T) {
+	env := newTestEnv(t)
+	if res := env.run(t, "", "template", "add", "my-tpl"); res.ExitCode != 0 {
+		t.Fatalf("first template add failed: %s", res.Stderr)
+	}
+	res := env.run(t, "", "template", "add", "my-tpl")
+	if res.ExitCode == 0 {
+		t.Error("expected error adding duplicate template, got exit 0")
+	}
+}
+
+func TestTemplateRm(t *testing.T) {
+	env := newTestEnv(t)
+	if res := env.run(t, "", "template", "add", "my-tpl"); res.ExitCode != 0 {
+		t.Fatalf("setup template add failed: %s", res.Stderr)
+	}
+	res := env.run(t, "", "template", "rm", "my-tpl")
+	if res.ExitCode != 0 {
+		t.Fatalf("template rm failed: %s", res.Stderr)
+	}
+	if env.fileExists(t, env.templateDir("my-tpl")) {
+		t.Error("template dir still exists after rm")
+	}
+}
+
+func TestTemplateRmNonExistent(t *testing.T) {
+	env := newTestEnv(t)
+	res := env.run(t, "", "template", "rm", "ghost")
+	if res.ExitCode == 0 {
+		t.Error("expected error removing non-existent template, got exit 0")
+	}
+}
+
+func TestTemplateList(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Empty list should succeed with no output.
+	res := env.run(t, "", "template", "list")
+	if res.ExitCode != 0 {
+		t.Fatalf("template list on empty: %s", res.Stderr)
+	}
+	if res.Stdout != "" {
+		t.Errorf("expected empty output, got %q", res.Stdout)
+	}
+
+	for _, name := range []string{"alpha", "beta", "gamma"} {
+		if r := env.run(t, "", "template", "add", name); r.ExitCode != 0 {
+			t.Fatalf("template add %q: %s", name, r.Stderr)
+		}
+	}
+
+	res = env.run(t, "", "template", "list")
+	if res.ExitCode != 0 {
+		t.Fatalf("template list: %s", res.Stderr)
+	}
+	want := map[string]bool{"alpha": true, "beta": true, "gamma": true}
+	for _, line := range strings.Split(strings.TrimSpace(res.Stdout), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if !want[line] {
+			t.Errorf("unexpected template in list: %q", line)
+		}
+		delete(want, line)
+	}
+	for missing := range want {
+		t.Errorf("template %q missing from list output", missing)
+	}
+}
+
+func TestAddWithTemplate(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Create a template with a file.
+	if res := env.run(t, "", "template", "add", "my-tpl"); res.ExitCode != 0 {
+		t.Fatalf("template add: %s", res.Stderr)
+	}
+	env.writeFile(t, env.templateDir("my-tpl")+"/AGENTS.md", "# Agents\n")
+
+	// Create workspace using the template.
+	res := env.run(t, "", "add", "--template", "my-tpl", "My Workspace")
+	if res.ExitCode != 0 {
+		t.Fatalf("add --template: stdout=%q stderr=%q", res.Stdout, res.Stderr)
+	}
+
+	wsDir := env.workspaceDir("my-workspace")
+	if !env.fileExists(t, wsDir+"/AGENTS.md") {
+		t.Error("template file AGENTS.md not present in workspace")
+	}
+
+	cfg := env.readFile(t, wsDir+"/config.yaml")
+	if !strings.Contains(cfg, "template: my-tpl") {
+		t.Errorf("config.yaml does not record template: %q", cfg)
+	}
+}
+
+func TestAddWithMissingTemplate(t *testing.T) {
+	env := newTestEnv(t)
+	res := env.run(t, "", "add", "--template", "nonexistent", "My Workspace")
+	if res.ExitCode == 0 {
+		t.Error("expected error adding workspace with missing template, got exit 0")
+	}
+}
+
+func TestTemplateSync(t *testing.T) {
+	env := newTestEnv(t)
+
+	// Create template with initial file content.
+	if res := env.run(t, "", "template", "add", "my-tpl"); res.ExitCode != 0 {
+		t.Fatalf("template add: %s", res.Stderr)
+	}
+	env.writeFile(t, env.templateDir("my-tpl")+"/AGENTS.md", "v1")
+
+	// Create two workspaces using the template and one without.
+	for _, ws := range []string{"Ws One", "Ws Two"} {
+		if res := env.run(t, "", "add", "--template", "my-tpl", ws); res.ExitCode != 0 {
+			t.Fatalf("add %q: %s", ws, res.Stderr)
+		}
+	}
+	if res := env.run(t, "", "add", "No Template"); res.ExitCode != 0 {
+		t.Fatalf("add no-template ws: %s", res.Stderr)
+	}
+	// Write a workspace-only file to verify it survives sync.
+	env.writeFile(t, env.workspaceDir("ws-one")+"/my-own.txt", "mine")
+
+	// Update template and sync.
+	env.writeFile(t, env.templateDir("my-tpl")+"/AGENTS.md", "v2")
+	res := env.run(t, "", "template", "sync", "my-tpl")
+	if res.ExitCode != 0 {
+		t.Fatalf("template sync: stdout=%q stderr=%q", res.Stdout, res.Stderr)
+	}
+
+	// Template workspaces should have updated file.
+	for _, ws := range []string{"ws-one", "ws-two"} {
+		content := env.readFile(t, env.workspaceDir(ws)+"/AGENTS.md")
+		if strings.TrimSpace(content) != "v2" {
+			t.Errorf("workspace %q AGENTS.md = %q, want %q", ws, content, "v2")
+		}
+	}
+
+	// Workspace-only file must survive.
+	if !env.fileExists(t, env.workspaceDir("ws-one")+"/my-own.txt") {
+		t.Error("workspace-only file my-own.txt was removed during sync")
+	}
+
+	// Non-template workspace must not have AGENTS.md.
+	if env.fileExists(t, env.workspaceDir("no-template")+"/AGENTS.md") {
+		t.Error("AGENTS.md incorrectly created in non-template workspace")
+	}
+}
+
+func TestTemplateSyncNonExistent(t *testing.T) {
+	env := newTestEnv(t)
+	res := env.run(t, "", "template", "sync", "ghost")
+	if res.ExitCode == 0 {
+		t.Error("expected error syncing non-existent template, got exit 0")
 	}
 }

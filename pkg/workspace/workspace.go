@@ -12,8 +12,9 @@ var consecutiveDashes = regexp.MustCompile(`-{2,}`)
 
 // Config is the structure written to config.yaml inside each workspace directory.
 type Config struct {
-	Name  string            `yaml:"name"`
-	Links map[string]string `yaml:"links"`
+	Name     string            `yaml:"name"`
+	Template string            `yaml:"template,omitempty"`
+	Links    map[string]string `yaml:"links"`
 }
 
 // ToDirName derives a lowercase-dash directory name from a display name.

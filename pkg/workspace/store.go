@@ -47,8 +47,9 @@ func Exists(name string) (bool, error) {
 }
 
 // Create creates the workspace directory and writes an initial config.yaml.
+// If template is non-empty, the named template's files are copied into the workspace.
 // Returns the workspace directory path on success.
-func Create(displayName string) (string, error) {
+func Create(displayName string, template string) (string, error) {
 	dirName := ToDirName(displayName)
 	if err := ValidateDirName(dirName); err != nil {
 		return "", fmt.Errorf("cannot derive valid workspace name from %q: %w", displayName, err)
@@ -60,6 +61,15 @@ func Create(displayName string) (string, error) {
 	if ok {
 		return "", fmt.Errorf("workspace %q already exists", dirName)
 	}
+	if template != "" {
+		ok, err := TemplateExists(template)
+		if err != nil {
+			return "", err
+		}
+		if !ok {
+			return "", fmt.Errorf("template %q does not exist", template)
+		}
+	}
 	dir, err := WorkspaceDir(dirName)
 	if err != nil {
 		return "", err
@@ -67,13 +77,18 @@ func Create(displayName string) (string, error) {
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return "", fmt.Errorf("creating workspace directory: %w", err)
 	}
-	cfg := Config{Name: displayName, Links: map[string]string{}}
+	cfg := Config{Name: displayName, Template: template, Links: map[string]string{}}
 	data, err := yaml.Marshal(cfg)
 	if err != nil {
 		return "", fmt.Errorf("marshaling config: %w", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), data, 0644); err != nil {
 		return "", fmt.Errorf("writing config.yaml: %w", err)
+	}
+	if template != "" {
+		if err := ApplyTemplate(template, dirName); err != nil {
+			return "", fmt.Errorf("applying template: %w", err)
+		}
 	}
 	return dir, nil
 }
