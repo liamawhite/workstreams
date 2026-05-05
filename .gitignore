@@ -1,0 +1,19 @@
+# Binary
+/workspace
+bin/
+
+# Test artifacts
+*.test
+*.out
+
+# Dependencies
+vendor/
+
+# OS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
