@@ -356,9 +356,9 @@ func TestRemove(t *testing.T) {
 
 func TestTemplateAdd(t *testing.T) {
 	tests := []struct {
-		name     string
-		tplName  string
-		wantErr  bool
+		name    string
+		tplName string
+		wantErr bool
 	}{
 		{"happy path", "my-tpl", false},
 		{"second template", "other-tpl", false},
