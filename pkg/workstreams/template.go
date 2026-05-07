@@ -1,4 +1,4 @@
-package workspace
+package workstreams
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// TemplatesBaseDir returns the path to ~/workspaces/.templates.
+// TemplatesBaseDir returns the path to ~/workstreams/.templates.
 func TemplatesBaseDir() (string, error) {
 	base, err := BaseDir()
 	if err != nil {
@@ -103,7 +103,7 @@ func ApplyTemplate(templateName, workspaceName string) error {
 	if err != nil {
 		return err
 	}
-	wsDir, err := WorkspaceDir(workspaceName)
+	wsDir, err := WorkstreamDir(workspaceName)
 	if err != nil {
 		return err
 	}

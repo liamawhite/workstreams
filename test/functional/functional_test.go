@@ -74,7 +74,7 @@ func newTestEnv(t *testing.T) *testEnv {
 
 // templateDir returns the container path to a named template under this env's home.
 func (e *testEnv) templateDir(name string) string {
-	return e.homeDir + "/workspaces/.templates/" + name
+	return e.homeDir + "/workstreams/.templates/" + name
 }
 
 // writeFile writes content to a path inside the container.
@@ -94,7 +94,7 @@ type result struct {
 	ExitCode int
 }
 
-// run executes the workspace binary in the container.
+// run executes the workstreams binary in the container.
 // cwd sets the working directory inside the container (empty = default).
 func (e *testEnv) run(t *testing.T, cwd string, args ...string) result {
 	t.Helper()
@@ -127,9 +127,9 @@ func (e *testEnv) run(t *testing.T, cwd string, args ...string) result {
 	}
 }
 
-// workspaceDir returns the container path to a named workspace under this env's home.
-func (e *testEnv) workspaceDir(name string) string {
-	return e.homeDir + "/workspaces/" + name
+// workstreamDir returns the container path to a named workstream under this env's home.
+func (e *testEnv) workstreamDir(name string) string {
+	return e.homeDir + "/workstreams/" + name
 }
 
 // fileExists reports whether a path exists in the container.
@@ -220,9 +220,9 @@ func TestAdd(t *testing.T) {
 				t.Fatalf("unexpected error: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 			}
 
-			wantDir := env.workspaceDir(tt.wantDir)
+			wantDir := env.workstreamDir(tt.wantDir)
 			if !env.fileExists(t, wantDir) {
-				t.Errorf("workspace dir %q not created", wantDir)
+				t.Errorf("workstream dir %q not created", wantDir)
 			}
 			if !env.fileExists(t, wantDir+"/config.yaml") {
 				t.Errorf("config.yaml not created")
@@ -250,7 +250,7 @@ func TestAddDuplicate(t *testing.T) {
 	}
 	res := env.run(t, "", "add", "My Project")
 	if res.ExitCode == 0 {
-		t.Error("expected error adding duplicate workspace, got exit 0")
+		t.Error("expected error adding duplicate workstream, got exit 0")
 	}
 }
 
@@ -261,8 +261,8 @@ func TestSwitch(t *testing.T) {
 		switch_ string // dir name to switch to
 		wantErr bool
 	}{
-		{"existing workspace", "My Project", "my-project", false},
-		{"nonexistent workspace", "", "ghost", true},
+		{"existing workstream", "My Project", "my-project", false},
+		{"nonexistent workstream", "", "ghost", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -286,7 +286,7 @@ func TestSwitch(t *testing.T) {
 				t.Fatalf("switch failed: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 			}
 
-			wantChdir := env.workspaceDir(tt.switch_)
+			wantChdir := env.workstreamDir(tt.switch_)
 			gotChdir := extractChdir(res.Stderr)
 			if gotChdir != wantChdir {
 				t.Errorf("WS_CHDIR path = %q, want %q (full stderr: %q)", gotChdir, wantChdir, res.Stderr)
@@ -304,9 +304,9 @@ func TestRemove(t *testing.T) {
 		wantErr    bool
 		wantChdir  string // "base", "none", or ""
 	}{
-		{"existing workspace", "My Project", "my-project", false, false, "none"},
-		{"nonexistent workspace", "", "ghost", false, true, ""},
-		{"from inside workspace", "My Project", "my-project", true, false, "base"},
+		{"existing workstream", "My Project", "my-project", false, false, "none"},
+		{"nonexistent workstream", "", "ghost", false, true, ""},
+		{"from inside workstream", "My Project", "my-project", true, false, "base"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -319,7 +319,7 @@ func TestRemove(t *testing.T) {
 
 			cwd := ""
 			if tt.fromInside {
-				cwd = env.workspaceDir(tt.remove)
+				cwd = env.workstreamDir(tt.remove)
 			}
 
 			res := env.run(t, cwd, "remove", tt.remove)
@@ -335,13 +335,13 @@ func TestRemove(t *testing.T) {
 				t.Fatalf("remove failed: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 			}
 
-			if env.fileExists(t, env.workspaceDir(tt.remove)) {
-				t.Errorf("workspace dir still exists after remove")
+			if env.fileExists(t, env.workstreamDir(tt.remove)) {
+				t.Errorf("workstream dir still exists after remove")
 			}
 
 			switch tt.wantChdir {
 			case "base":
-				wantBase := env.homeDir + "/workspaces"
+				wantBase := env.homeDir + "/workstreams"
 				if gotChdir := extractChdir(res.Stderr); gotChdir != wantBase {
 					t.Errorf("WS_CHDIR path = %q, want %q (full stderr: %q)", gotChdir, wantBase, res.Stderr)
 				}
@@ -463,15 +463,15 @@ func TestAddWithTemplate(t *testing.T) {
 	}
 	env.writeFile(t, env.templateDir("my-tpl")+"/AGENTS.md", "# Agents\n")
 
-	// Create workspace using the template.
-	res := env.run(t, "", "add", "--template", "my-tpl", "My Workspace")
+	// Create workstream using the template.
+	res := env.run(t, "", "add", "--template", "my-tpl", "My Workstream")
 	if res.ExitCode != 0 {
 		t.Fatalf("add --template: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 	}
 
-	wsDir := env.workspaceDir("my-workspace")
+	wsDir := env.workstreamDir("my-workstream")
 	if !env.fileExists(t, wsDir+"/AGENTS.md") {
-		t.Error("template file AGENTS.md not present in workspace")
+		t.Error("template file AGENTS.md not present in workstream")
 	}
 
 	cfg := env.readFile(t, wsDir+"/config.yaml")
@@ -482,9 +482,9 @@ func TestAddWithTemplate(t *testing.T) {
 
 func TestAddWithMissingTemplate(t *testing.T) {
 	env := newTestEnv(t)
-	res := env.run(t, "", "add", "--template", "nonexistent", "My Workspace")
+	res := env.run(t, "", "add", "--template", "nonexistent", "My Workstream")
 	if res.ExitCode == 0 {
-		t.Error("expected error adding workspace with missing template, got exit 0")
+		t.Error("expected error adding workstream with missing template, got exit 0")
 	}
 }
 
@@ -497,7 +497,7 @@ func TestTemplateSync(t *testing.T) {
 	}
 	env.writeFile(t, env.templateDir("my-tpl")+"/AGENTS.md", "v1")
 
-	// Create two workspaces using the template and one without.
+	// Create two workstreams using the template and one without.
 	for _, ws := range []string{"Ws One", "Ws Two"} {
 		if res := env.run(t, "", "add", "--template", "my-tpl", ws); res.ExitCode != 0 {
 			t.Fatalf("add %q: %s", ws, res.Stderr)
@@ -506,8 +506,8 @@ func TestTemplateSync(t *testing.T) {
 	if res := env.run(t, "", "add", "No Template"); res.ExitCode != 0 {
 		t.Fatalf("add no-template ws: %s", res.Stderr)
 	}
-	// Write a workspace-only file to verify it survives sync.
-	env.writeFile(t, env.workspaceDir("ws-one")+"/my-own.txt", "mine")
+	// Write a workstream-only file to verify it survives sync.
+	env.writeFile(t, env.workstreamDir("ws-one")+"/my-own.txt", "mine")
 
 	// Update template and sync.
 	env.writeFile(t, env.templateDir("my-tpl")+"/AGENTS.md", "v2")
@@ -516,22 +516,22 @@ func TestTemplateSync(t *testing.T) {
 		t.Fatalf("template sync: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 	}
 
-	// Template workspaces should have updated file.
+	// Template workstreams should have updated file.
 	for _, ws := range []string{"ws-one", "ws-two"} {
-		content := env.readFile(t, env.workspaceDir(ws)+"/AGENTS.md")
+		content := env.readFile(t, env.workstreamDir(ws)+"/AGENTS.md")
 		if strings.TrimSpace(content) != "v2" {
-			t.Errorf("workspace %q AGENTS.md = %q, want %q", ws, content, "v2")
+			t.Errorf("workstream %q AGENTS.md = %q, want %q", ws, content, "v2")
 		}
 	}
 
-	// Workspace-only file must survive.
-	if !env.fileExists(t, env.workspaceDir("ws-one")+"/my-own.txt") {
-		t.Error("workspace-only file my-own.txt was removed during sync")
+	// Workstream-only file must survive.
+	if !env.fileExists(t, env.workstreamDir("ws-one")+"/my-own.txt") {
+		t.Error("workstream-only file my-own.txt was removed during sync")
 	}
 
-	// Non-template workspace must not have AGENTS.md.
-	if env.fileExists(t, env.workspaceDir("no-template")+"/AGENTS.md") {
-		t.Error("AGENTS.md incorrectly created in non-template workspace")
+	// Non-template workstream must not have AGENTS.md.
+	if env.fileExists(t, env.workstreamDir("no-template")+"/AGENTS.md") {
+		t.Error("AGENTS.md incorrectly created in non-template workstream")
 	}
 }
 

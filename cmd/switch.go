@@ -4,24 +4,24 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/liamawhite/workstreams/pkg/workspace"
+	workstreams "github.com/liamawhite/workstreams/pkg/workstreams"
 	"github.com/spf13/cobra"
 )
 
 var switchCmd = &cobra.Command{
 	Use:   "switch <name>",
-	Short: "Switch to a workspace",
+	Short: "Switch to a workstream",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
-		ok, err := workspace.Exists(name)
+		ok, err := workstreams.Exists(name)
 		if err != nil {
 			return err
 		}
 		if !ok {
-			return fmt.Errorf("workspace %q does not exist", name)
+			return fmt.Errorf("workstream %q does not exist", name)
 		}
-		dir, err := workspace.WorkspaceDir(name)
+		dir, err := workstreams.WorkstreamDir(name)
 		if err != nil {
 			return err
 		}

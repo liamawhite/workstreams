@@ -1,4 +1,4 @@
-package workspace
+package workstreams
 
 import (
 	"os"
@@ -99,7 +99,7 @@ func TestApplyTemplate(t *testing.T) {
 	if _, err := Create("My Workspace", ""); err != nil {
 		t.Fatal(err)
 	}
-	wsDir, _ := WorkspaceDir("my-workspace")
+	wsDir, _ := WorkstreamDir("my-workspace")
 
 	// pre-existing workspace-only file that must survive
 	if err := os.WriteFile(filepath.Join(wsDir, "my-own-file.txt"), []byte("mine\n"), 0644); err != nil {
@@ -144,7 +144,7 @@ func TestApplyTemplateOverwrites(t *testing.T) {
 		t.Fatalf("ApplyTemplate: %v", err)
 	}
 
-	wsDir, _ := WorkspaceDir("my-workspace")
+	wsDir, _ := WorkstreamDir("my-workspace")
 	content, err := os.ReadFile(filepath.Join(wsDir, "AGENTS.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -169,7 +169,7 @@ func TestCreateWithTemplate(t *testing.T) {
 		t.Fatalf("Create with template: %v", err)
 	}
 
-	wsDir, _ := WorkspaceDir("my-workspace")
+	wsDir, _ := WorkstreamDir("my-workspace")
 	if _, err := os.Stat(filepath.Join(wsDir, "AGENTS.md")); err != nil {
 		t.Errorf("template file not found in workspace: %v", err)
 	}

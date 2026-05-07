@@ -3,7 +3,7 @@ package templatecmd
 import (
 	"fmt"
 
-	"github.com/liamawhite/workstreams/pkg/workspace"
+	workstreams "github.com/liamawhite/workstreams/pkg/workstreams"
 	"github.com/spf13/cobra"
 )
 
@@ -12,10 +12,10 @@ var addCmd = &cobra.Command{
 	Short: "Create a new template",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if err := workspace.CreateTemplate(args[0]); err != nil {
+		if err := workstreams.CreateTemplate(args[0]); err != nil {
 			return err
 		}
-		dir, err := workspace.TemplateDir(args[0])
+		dir, err := workstreams.TemplateDir(args[0])
 		if err != nil {
 			return err
 		}

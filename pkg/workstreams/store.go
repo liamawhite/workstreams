@@ -1,4 +1,4 @@
-package workspace
+package workstreams
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ import (
 // baseDirOverride is set by tests to redirect all filesystem operations.
 var baseDirOverride string
 
-// BaseDir returns the path to ~/workspaces.
+// BaseDir returns the path to ~/workstreams.
 func BaseDir() (string, error) {
 	if baseDirOverride != "" {
 		return baseDirOverride, nil
@@ -21,11 +21,11 @@ func BaseDir() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("resolving home directory: %w", err)
 	}
-	return filepath.Join(home, "workspaces"), nil
+	return filepath.Join(home, "workstreams"), nil
 }
 
-// WorkspaceDir returns the full path to a named workspace directory.
-func WorkspaceDir(name string) (string, error) {
+// WorkstreamDir returns the full path to a named workspace directory.
+func WorkstreamDir(name string) (string, error) {
 	base, err := BaseDir()
 	if err != nil {
 		return "", err
@@ -35,7 +35,7 @@ func WorkspaceDir(name string) (string, error) {
 
 // Exists reports whether a workspace with the given name exists on disk.
 func Exists(name string) (bool, error) {
-	dir, err := WorkspaceDir(name)
+	dir, err := WorkstreamDir(name)
 	if err != nil {
 		return false, err
 	}
@@ -70,7 +70,7 @@ func Create(displayName string, template string) (string, error) {
 			return "", fmt.Errorf("template %q does not exist", template)
 		}
 	}
-	dir, err := WorkspaceDir(dirName)
+	dir, err := WorkstreamDir(dirName)
 	if err != nil {
 		return "", err
 	}
@@ -95,7 +95,7 @@ func Create(displayName string, template string) (string, error) {
 
 // ReadConfig loads and parses the config.yaml for the named workspace.
 func ReadConfig(name string) (*Config, error) {
-	dir, err := WorkspaceDir(name)
+	dir, err := WorkstreamDir(name)
 	if err != nil {
 		return nil, err
 	}
@@ -119,14 +119,14 @@ func Delete(name string) error {
 	if !ok {
 		return fmt.Errorf("workspace %q does not exist", name)
 	}
-	dir, err := WorkspaceDir(name)
+	dir, err := WorkstreamDir(name)
 	if err != nil {
 		return err
 	}
 	return os.RemoveAll(dir)
 }
 
-// List returns the names of all workspaces (subdirectories excluding dot-entries).
+// List returns the names of all workstreams (subdirectories excluding dot-entries).
 func List() ([]string, error) {
 	base, err := BaseDir()
 	if err != nil {
@@ -137,7 +137,7 @@ func List() ([]string, error) {
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("reading workspaces directory: %w", err)
+		return nil, fmt.Errorf("reading workstreams directory: %w", err)
 	}
 	var names []string
 	for _, e := range entries {
