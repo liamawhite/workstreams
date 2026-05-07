@@ -10,7 +10,7 @@ var validDirName = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
 
 var consecutiveDashes = regexp.MustCompile(`-{2,}`)
 
-// Config is the structure written to config.yaml inside each workspace directory.
+// Config is the structure written to config.yaml inside each workstream directory.
 type Config struct {
 	Name     string            `yaml:"name"`
 	Template string            `yaml:"template,omitempty"`
@@ -32,10 +32,10 @@ func ToDirName(displayName string) string {
 	return s
 }
 
-// ValidateDirName returns an error if name is not a valid lowercase-dash workspace name.
+// ValidateDirName returns an error if name is not a valid lowercase-dash workstream name.
 func ValidateDirName(name string) error {
 	if !validDirName.MatchString(name) {
-		return fmt.Errorf("invalid workspace directory name %q: must be lowercase letters, digits, and dashes (e.g. \"my-project\")", name)
+		return fmt.Errorf("invalid workstream directory name %q: must be lowercase letters, digits, and dashes (e.g. \"my-project\")", name)
 	}
 	return nil
 }

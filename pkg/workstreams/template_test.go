@@ -96,17 +96,17 @@ func TestApplyTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := Create("My Workspace", ""); err != nil {
+	if _, err := Create("My Workstream", ""); err != nil {
 		t.Fatal(err)
 	}
-	wsDir, _ := WorkstreamDir("my-workspace")
+	wsDir, _ := WorkstreamDir("my-workstream")
 
-	// pre-existing workspace-only file that must survive
+	// pre-existing workstream-only file that must survive
 	if err := os.WriteFile(filepath.Join(wsDir, "my-own-file.txt"), []byte("mine\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := ApplyTemplate("my-tpl", "my-workspace"); err != nil {
+	if err := ApplyTemplate("my-tpl", "my-workstream"); err != nil {
 		t.Fatalf("ApplyTemplate: %v", err)
 	}
 
@@ -117,7 +117,7 @@ func TestApplyTemplate(t *testing.T) {
 	}
 
 	if _, err := os.Stat(filepath.Join(wsDir, "my-own-file.txt")); err != nil {
-		t.Errorf("workspace-only file was removed: %v", err)
+		t.Errorf("workstream-only file was removed: %v", err)
 	}
 }
 
@@ -132,7 +132,7 @@ func TestApplyTemplateOverwrites(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := Create("My Workspace", "my-tpl"); err != nil {
+	if _, err := Create("My Workstream", "my-tpl"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -140,11 +140,11 @@ func TestApplyTemplateOverwrites(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(tmplDir, "AGENTS.md"), []byte("v2\n"), 0644); err != nil {
 		t.Fatal(err)
 	}
-	if err := ApplyTemplate("my-tpl", "my-workspace"); err != nil {
+	if err := ApplyTemplate("my-tpl", "my-workstream"); err != nil {
 		t.Fatalf("ApplyTemplate: %v", err)
 	}
 
-	wsDir, _ := WorkstreamDir("my-workspace")
+	wsDir, _ := WorkstreamDir("my-workstream")
 	content, err := os.ReadFile(filepath.Join(wsDir, "AGENTS.md"))
 	if err != nil {
 		t.Fatal(err)
@@ -165,16 +165,16 @@ func TestCreateWithTemplate(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if _, err := Create("My Workspace", "my-tpl"); err != nil {
+	if _, err := Create("My Workstream", "my-tpl"); err != nil {
 		t.Fatalf("Create with template: %v", err)
 	}
 
-	wsDir, _ := WorkstreamDir("my-workspace")
+	wsDir, _ := WorkstreamDir("my-workstream")
 	if _, err := os.Stat(filepath.Join(wsDir, "AGENTS.md")); err != nil {
-		t.Errorf("template file not found in workspace: %v", err)
+		t.Errorf("template file not found in workstream: %v", err)
 	}
 
-	cfg, err := ReadConfig("my-workspace")
+	cfg, err := ReadConfig("my-workstream")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -185,7 +185,7 @@ func TestCreateWithTemplate(t *testing.T) {
 
 func TestCreateWithMissingTemplate(t *testing.T) {
 	useTemp(t)
-	if _, err := Create("My Workspace", "nonexistent"); err == nil {
-		t.Error("expected error creating workspace with missing template, got nil")
+	if _, err := Create("My Workstream", "nonexistent"); err == nil {
+		t.Error("expected error creating workstream with missing template, got nil")
 	}
 }

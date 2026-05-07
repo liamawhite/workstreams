@@ -24,7 +24,7 @@ func BaseDir() (string, error) {
 	return filepath.Join(home, "workstreams"), nil
 }
 
-// WorkstreamDir returns the full path to a named workspace directory.
+// WorkstreamDir returns the full path to a named workstream directory.
 func WorkstreamDir(name string) (string, error) {
 	base, err := BaseDir()
 	if err != nil {
@@ -33,7 +33,7 @@ func WorkstreamDir(name string) (string, error) {
 	return filepath.Join(base, name), nil
 }
 
-// Exists reports whether a workspace with the given name exists on disk.
+// Exists reports whether a workstream with the given name exists on disk.
 func Exists(name string) (bool, error) {
 	dir, err := WorkstreamDir(name)
 	if err != nil {
@@ -46,20 +46,20 @@ func Exists(name string) (bool, error) {
 	return err == nil, err
 }
 
-// Create creates the workspace directory and writes an initial config.yaml.
-// If template is non-empty, the named template's files are copied into the workspace.
-// Returns the workspace directory path on success.
+// Create creates the workstream directory and writes an initial config.yaml.
+// If template is non-empty, the named template's files are copied into the workstream.
+// Returns the workstream directory path on success.
 func Create(displayName string, template string) (string, error) {
 	dirName := ToDirName(displayName)
 	if err := ValidateDirName(dirName); err != nil {
-		return "", fmt.Errorf("cannot derive valid workspace name from %q: %w", displayName, err)
+		return "", fmt.Errorf("cannot derive valid workstream name from %q: %w", displayName, err)
 	}
 	ok, err := Exists(dirName)
 	if err != nil {
 		return "", err
 	}
 	if ok {
-		return "", fmt.Errorf("workspace %q already exists", dirName)
+		return "", fmt.Errorf("workstream %q already exists", dirName)
 	}
 	if template != "" {
 		ok, err := TemplateExists(template)
@@ -75,7 +75,7 @@ func Create(displayName string, template string) (string, error) {
 		return "", err
 	}
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("creating workspace directory: %w", err)
+		return "", fmt.Errorf("creating workstream directory: %w", err)
 	}
 	cfg := Config{Name: displayName, Template: template, Links: map[string]string{}}
 	data, err := yaml.Marshal(cfg)
@@ -93,7 +93,7 @@ func Create(displayName string, template string) (string, error) {
 	return dir, nil
 }
 
-// ReadConfig loads and parses the config.yaml for the named workspace.
+// ReadConfig loads and parses the config.yaml for the named workstream.
 func ReadConfig(name string) (*Config, error) {
 	dir, err := WorkstreamDir(name)
 	if err != nil {
@@ -110,14 +110,14 @@ func ReadConfig(name string) (*Config, error) {
 	return &cfg, nil
 }
 
-// Delete removes the workspace directory. Returns an error if it does not exist.
+// Delete removes the workstream directory. Returns an error if it does not exist.
 func Delete(name string) error {
 	ok, err := Exists(name)
 	if err != nil {
 		return err
 	}
 	if !ok {
-		return fmt.Errorf("workspace %q does not exist", name)
+		return fmt.Errorf("workstream %q does not exist", name)
 	}
 	dir, err := WorkstreamDir(name)
 	if err != nil {

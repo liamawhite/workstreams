@@ -96,14 +96,14 @@ func DeleteTemplate(name string) error {
 	return os.RemoveAll(dir)
 }
 
-// ApplyTemplate copies all files from the named template into the workspace,
-// overwriting matching files while leaving workspace-only files untouched.
-func ApplyTemplate(templateName, workspaceName string) error {
+// ApplyTemplate copies all files from the named template into the workstream,
+// overwriting matching files while leaving workstream-only files untouched.
+func ApplyTemplate(templateName, workstreamName string) error {
 	tmplDir, err := TemplateDir(templateName)
 	if err != nil {
 		return err
 	}
-	wsDir, err := WorkstreamDir(workspaceName)
+	wsDir, err := WorkstreamDir(workstreamName)
 	if err != nil {
 		return err
 	}
