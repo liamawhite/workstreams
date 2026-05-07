@@ -1,4 +1,4 @@
-module github.com/liamawhite/workspace
+module github.com/liamawhite/workstreams
 
 go 1.25.0
 

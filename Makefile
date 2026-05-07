@@ -1,8 +1,8 @@
 VERSION    ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT     ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 BUILD_TIME ?= $(shell date -u +%Y-%m-%dT%H:%M:%SZ)
-MODULE     := github.com/liamawhite/workspace
-BINARY     := workspace
+MODULE     := github.com/liamawhite/workstreams
+BINARY     := workstreams
 BIN_DIR    := bin
 
 LDFLAGS := -X $(MODULE)/cmd.Version=$(VERSION) \
@@ -11,7 +11,7 @@ LDFLAGS := -X $(MODULE)/cmd.Version=$(VERSION) \
 
 .PHONY: build install test test-unit test-functional lint fmt tidy check clean help
 
-build: ## Build the binary to bin/workspace
+build: ## Build the binary to bin/workstreams
 	go build -ldflags "$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY) .
 
 install: ## Install the binary to $GOPATH/bin

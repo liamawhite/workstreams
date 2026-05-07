@@ -19,14 +19,14 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-const containerBin = "/usr/local/bin/workspace"
+const containerBin = "/usr/local/bin/workstreams"
 
 var globalCtr testcontainers.Container
 
 func TestMain(m *testing.M) {
 	ctx := context.Background()
 
-	binPath := filepath.Join(os.TempDir(), "workspace-linux-functional")
+	binPath := filepath.Join(os.TempDir(), "workstreams-linux-functional")
 	build := exec.Command("go", "build", "-o", binPath, "../..")
 	build.Env = append(os.Environ(), "GOOS=linux", "CGO_ENABLED=0")
 	if out, err := build.CombinedOutput(); err != nil {

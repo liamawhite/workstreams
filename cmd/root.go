@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	templatecmd "github.com/liamawhite/workspace/cmd/template"
+	templatecmd "github.com/liamawhite/workstreams/cmd/template"
 	"github.com/spf13/cobra"
 )
 
@@ -13,8 +13,8 @@ var Commit = "none"
 var BuildTime = "unknown"
 
 var rootCmd = &cobra.Command{
-	Use:           "workspace",
-	Short:         "workspace is a CLI tool",
+	Use:           "workstreams",
+	Short:         "workstreams is a CLI tool",
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	Version:       Version,

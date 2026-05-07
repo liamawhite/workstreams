@@ -5,7 +5,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/liamawhite/workspace/pkg/workspace"
+	"github.com/liamawhite/workstreams/pkg/workspace"
 	"github.com/spf13/cobra"
 )
 

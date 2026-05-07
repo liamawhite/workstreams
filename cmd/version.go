@@ -8,7 +8,7 @@ import (
 
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "Print the version of workspace",
+	Short: "Print the version of workstreams",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Printf("version:    %s\n", Version)
 		fmt.Printf("commit:     %s\n", Commit)
