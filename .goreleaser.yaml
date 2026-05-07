@@ -14,9 +14,9 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -X github.com/liamawhite/workspace/cmd.Version={{.Version}}
-      - -X github.com/liamawhite/workspace/cmd.Commit={{.Commit}}
-      - -X github.com/liamawhite/workspace/cmd.BuildTime={{.Date}}
+      - -X github.com/liamawhite/workstreams/cmd.Version={{.Version}}
+      - -X github.com/liamawhite/workstreams/cmd.Commit={{.Commit}}
+      - -X github.com/liamawhite/workstreams/cmd.BuildTime={{.Date}}
 
 archives:
   - formats:

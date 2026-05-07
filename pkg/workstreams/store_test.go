@@ -1,4 +1,4 @@
-package workspace
+package workstreams
 
 import (
 	"os"
@@ -56,7 +56,7 @@ func TestCreate(t *testing.T) {
 				t.Errorf("returned path = %q, want %q", dir, wantPath)
 			}
 			if _, err := os.Stat(wantPath); err != nil {
-				t.Errorf("workspace directory not created: %v", err)
+				t.Errorf("workstream directory not created: %v", err)
 			}
 			cfg, err := ReadConfig(tt.wantDir)
 			if err != nil {
@@ -78,7 +78,7 @@ func TestCreateDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := Create("My Project", ""); err == nil {
-		t.Fatal("expected error creating duplicate workspace, got nil")
+		t.Fatal("expected error creating duplicate workstream, got nil")
 	}
 }
 
@@ -91,14 +91,14 @@ func TestDelete(t *testing.T) {
 		t.Fatalf("Delete: %v", err)
 	}
 	if ok, _ := Exists("my-project"); ok {
-		t.Error("workspace still exists after Delete")
+		t.Error("workstream still exists after Delete")
 	}
 }
 
 func TestDeleteNonExistent(t *testing.T) {
 	useTemp(t)
 	if err := Delete("ghost"); err == nil {
-		t.Error("expected error deleting non-existent workspace, got nil")
+		t.Error("expected error deleting non-existent workstream, got nil")
 	}
 }
 

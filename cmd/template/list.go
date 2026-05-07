@@ -3,7 +3,7 @@ package templatecmd
 import (
 	"fmt"
 
-	"github.com/liamawhite/workspace/pkg/workspace"
+	workstreams "github.com/liamawhite/workstreams/pkg/workstreams"
 	"github.com/spf13/cobra"
 )
 
@@ -12,7 +12,7 @@ var listCmd = &cobra.Command{
 	Short: "List all templates",
 	Args:  cobra.NoArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		names, err := workspace.ListTemplates()
+		names, err := workstreams.ListTemplates()
 		if err != nil {
 			return err
 		}

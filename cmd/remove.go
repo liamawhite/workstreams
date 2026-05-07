@@ -5,17 +5,17 @@ import (
 	"os"
 	"strings"
 
-	"github.com/liamawhite/workspace/pkg/workspace"
+	workstreams "github.com/liamawhite/workstreams/pkg/workstreams"
 	"github.com/spf13/cobra"
 )
 
 var removeCmd = &cobra.Command{
 	Use:   "remove <name>",
-	Short: "Remove a workspace",
+	Short: "Remove a workstream",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
-		dir, err := workspace.WorkspaceDir(name)
+		dir, err := workstreams.WorkstreamDir(name)
 		if err != nil {
 			return err
 		}
@@ -23,12 +23,12 @@ var removeCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		if err := workspace.Delete(name); err != nil {
+		if err := workstreams.Delete(name); err != nil {
 			return err
 		}
-		fmt.Printf("Removed workspace %q\n", name)
+		fmt.Printf("Removed workstream %q\n", name)
 		if strings.HasPrefix(cwd, dir) {
-			base, err := workspace.BaseDir()
+			base, err := workstreams.BaseDir()
 			if err != nil {
 				return err
 			}
