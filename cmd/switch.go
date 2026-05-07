@@ -9,8 +9,9 @@ import (
 )
 
 var switchCmd = &cobra.Command{
-	Use:   "switch <name>",
-	Short: "Switch to a workstream",
+	Use:     "switch <name>",
+	Aliases: []string{"sw"},
+	Short:   "Switch to a workstream",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]

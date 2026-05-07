@@ -10,8 +10,9 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:   "remove <name>",
-	Short: "Remove a workstream",
+	Use:     "remove <name>",
+	Aliases: []string{"rm"},
+	Short:   "Remove a workstream",
 	Args:  cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]

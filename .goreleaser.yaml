@@ -28,3 +28,36 @@ checksum:
 
 release:
   draft: false
+  footer: |
+    ## Shell Integration
+
+    To enable automatic directory changes when using `workstreams add`, `workstreams switch`, and `workstreams remove`, add the following to your shell profile (`~/.bashrc`, `~/.bash_profile`, or `~/.zshrc`):
+
+    ```bash
+    workstreams() {
+        local cmd="$1"
+
+        if [[ "$cmd" == "add" || "$cmd" == "switch" || "$cmd" == "sw" || "$cmd" == "remove" || "$cmd" == "rm" ]]; then
+            local temp_file
+            temp_file=$(mktemp)
+
+            command workstreams "$@" 2> >(tee "$temp_file" >&2)
+            local exit_code=$?
+
+            local target_dir
+            target_dir=$(grep "^WS_CHDIR:" "$temp_file" 2>/dev/null | sed 's/^WS_CHDIR://')
+
+            rm -f "$temp_file"
+
+            if [[ -n "$target_dir" && -d "$target_dir" ]]; then
+                cd "$target_dir" || echo "Warning: Failed to change to directory: $target_dir"
+            fi
+
+            return $exit_code
+        else
+            command workstreams "$@"
+        fi
+    }
+    ```
+
+    After adding this function, restart your shell or run `source ~/.bashrc`/`source ~/.zshrc`.
