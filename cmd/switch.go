@@ -12,7 +12,7 @@ var switchCmd = &cobra.Command{
 	Use:     "switch <name>",
 	Aliases: []string{"sw"},
 	Short:   "Switch to a workstream",
-	Args:  cobra.ExactArgs(1),
+	Args:    cobra.ExactArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		name := args[0]
 		ok, err := workstreams.Exists(name)
