@@ -28,6 +28,7 @@ var addCmd = &cobra.Command{
 
 func init() {
 	addCmd.Flags().StringVar(&addType, "type", "", "workstream type (must match an existing type dir)")
+	//nolint:errcheck
 	addCmd.RegisterFlagCompletionFunc("type", func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
 		names, err := types.List()
 		if err != nil {
