@@ -65,9 +65,6 @@ func TestCreate(t *testing.T) {
 			if cfg.Name != tt.wantName {
 				t.Errorf("config.Name = %q, want %q", cfg.Name, tt.wantName)
 			}
-			if cfg.Links == nil {
-				t.Error("config.Links is nil, want empty map")
-			}
 		})
 	}
 }
@@ -152,7 +149,64 @@ func TestReadConfig(t *testing.T) {
 	if cfg.Name != "Hello World" {
 		t.Errorf("Name = %q, want %q", cfg.Name, "Hello World")
 	}
-	if cfg.Links == nil {
-		t.Error("Links is nil")
+}
+
+func TestListByType(t *testing.T) {
+	useTemp(t)
+
+	// Empty dir → empty map.
+	byType, err := ListByType()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byType) != 0 {
+		t.Errorf("expected empty map, got %v", byType)
+	}
+
+	// Write workstream dirs with config files directly — bypasses type validation
+	// so we can test grouping without needing real type directories.
+	base, _ := BaseDir()
+	writeWS := func(dirName, typeName string) {
+		t.Helper()
+		dir := filepath.Join(base, dirName)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatal(err)
+		}
+		content := "name: " + dirName + "\n"
+		if typeName != "" {
+			content += "type: " + typeName + "\n"
+		}
+		if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(content), 0644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	writeWS("alpha", "go")
+	writeWS("beta", "go")
+	writeWS("gamma", "rust")
+	writeWS("delta", "") // untyped
+
+	byType, err = ListByType()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	check := func(key string, wantCount int) {
+		t.Helper()
+		if got := len(byType[key]); got != wantCount {
+			t.Errorf("byType[%q] has %d items, want %d: %v", key, got, wantCount, byType[key])
+		}
+	}
+	check("go", 2)
+	check("rust", 1)
+	check("", 1)
+
+	// Verify the right names are in each group.
+	goSet := map[string]bool{}
+	for _, n := range byType["go"] {
+		goSet[n] = true
+	}
+	if !goSet["alpha"] || !goSet["beta"] {
+		t.Errorf("byType[\"go\"] = %v, want [alpha beta]", byType["go"])
 	}
 }

@@ -1,4 +1,4 @@
-package workstreams
+package types
 
 import (
 	"fmt"
@@ -7,13 +7,11 @@ import (
 )
 
 var validDirName = regexp.MustCompile(`^[a-z][a-z0-9]*(-[a-z0-9]+)*$`)
-
 var consecutiveDashes = regexp.MustCompile(`-{2,}`)
 
-// Config is the structure written to config.yaml inside each workstream directory.
-type Config struct {
+// TypeConfig is the configuration stored in each type's config.yaml.
+type TypeConfig struct {
 	Name string `yaml:"name"`
-	Type string `yaml:"type,omitempty"`
 }
 
 // ToDirName derives a lowercase-dash directory name from a display name.
@@ -27,14 +25,13 @@ func ToDirName(displayName string) string {
 		}
 	}
 	s = consecutiveDashes.ReplaceAllString(b.String(), "-")
-	s = strings.Trim(s, "-")
-	return s
+	return strings.Trim(s, "-")
 }
 
-// ValidateDirName returns an error if name is not a valid lowercase-dash workstream name.
+// ValidateDirName returns an error if name is not a valid lowercase-dash type name.
 func ValidateDirName(name string) error {
 	if !validDirName.MatchString(name) {
-		return fmt.Errorf("invalid workstream directory name %q: must be lowercase letters, digits, and dashes (e.g. \"my-project\")", name)
+		return fmt.Errorf("invalid type name %q: must be lowercase letters, digits, and dashes (e.g. \"my-type\")", name)
 	}
 	return nil
 }

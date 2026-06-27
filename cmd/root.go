@@ -3,8 +3,12 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
-	templatecmd "github.com/liamawhite/workstreams/cmd/template"
+	typecmd "github.com/liamawhite/workstreams/cmd/types"
+	"github.com/liamawhite/workstreams/internal/tui"
+	"github.com/liamawhite/workstreams/pkg/types"
+	workstreams "github.com/liamawhite/workstreams/pkg/workstreams"
 	"github.com/spf13/cobra"
 )
 
@@ -18,6 +22,48 @@ var rootCmd = &cobra.Command{
 	SilenceUsage:  true,
 	SilenceErrors: true,
 	Version:       Version,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		result, err := tui.Run()
+		if err != nil {
+			return err
+		}
+
+		// User confirmed creation: clear screen then stream onInit.sh to terminal.
+		if result.CreateName != "" {
+			fmt.Print("\033[H\033[2J")
+			if _, err := workstreams.Create(result.CreateName, result.CreateType); err != nil {
+				return err
+			}
+			result.Selected = workstreams.ToDirName(result.CreateName)
+		}
+
+		if result.Selected == "" {
+			return nil
+		}
+
+		dir, err := workstreams.WorkstreamDir(result.Selected)
+		if err != nil {
+			return err
+		}
+		cfg, err := workstreams.ReadConfig(result.Selected)
+		if err == nil && cfg.Type != "" {
+			script := types.OnLoadScript(cfg.Type)
+			if _, statErr := os.Stat(script); statErr == nil {
+				c := exec.Command("bash", script)
+				c.Dir = dir
+				c.Env = append(os.Environ(),
+					"WORKSTREAM_DIR="+dir,
+					"WORKSTREAM_NAME="+cfg.Name,
+					"WORKSTREAM_TYPE="+cfg.Type,
+				)
+				c.Stdout = os.Stdout
+				c.Stderr = os.Stderr
+				c.Run() //nolint:errcheck
+			}
+		}
+		fmt.Fprintf(os.Stderr, "WS_CHDIR:%s\n", dir)
+		return nil
+	},
 }
 
 func Execute() {
@@ -33,5 +79,5 @@ func init() {
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(switchCmd)
 	rootCmd.AddCommand(removeCmd)
-	rootCmd.AddCommand(templatecmd.Cmd)
+	rootCmd.AddCommand(typecmd.Cmd)
 }
