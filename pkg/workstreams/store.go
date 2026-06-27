@@ -121,7 +121,7 @@ func Create(displayName, typeName string) (string, error) {
 				cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 				if cmd.Start() == nil {
 					go func() {
-						cmd.Wait()   //nolint:errcheck
+						cmd.Wait() //nolint:errcheck
 						logFile.Close()
 					}()
 				} else {

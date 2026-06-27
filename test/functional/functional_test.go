@@ -80,7 +80,6 @@ func newTestEnv(t *testing.T) *testEnv {
 	return &testEnv{homeDir: home, tmpDir: base}
 }
 
-
 // writeFile writes content to a path inside the container.
 func (e *testEnv) writeFile(t *testing.T, path, content string) {
 	t.Helper()
@@ -560,4 +559,3 @@ func TestRemove(t *testing.T) {
 		})
 	}
 }
-
