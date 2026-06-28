@@ -76,6 +76,7 @@ func Execute() {
 func init() {
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "enable verbose output")
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(currentCmd)
 	rootCmd.AddCommand(addCmd)
 	rootCmd.AddCommand(switchCmd)
 	rootCmd.AddCommand(removeCmd)
