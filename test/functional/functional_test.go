@@ -134,6 +134,8 @@ func (e *testEnv) run(t *testing.T, cwd string, args ...string) result {
 	// The script sources the wrapper so the workstreams shell function handles cd and exit.
 	// After the command, we echo a sentinel and capture pwd. If the wrapper called exit,
 	// neither line runs, so ShellExited=true and DirAfter is empty.
+	// ws_rc captures the workstreams exit code so the script exits with it, not with
+	// the exit code of pwd (which would always be 0).
 	script := strings.Join([]string{
 		"#!/usr/bin/env bash",
 		"export HOME=" + e.homeDir,
@@ -141,8 +143,10 @@ func (e *testEnv) run(t *testing.T, cwd string, args ...string) result {
 		"source " + containerWrapper,
 		"cd " + startDir,
 		"workstreams " + strings.Join(quotedArgs, " "),
+		"ws_rc=$?",
 		"echo " + wsSentinel,
 		"pwd > " + dirFile,
+		"exit $ws_rc",
 	}, "\n")
 
 	e.writeFile(t, scriptFile, script)
