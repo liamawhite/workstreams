@@ -6,6 +6,45 @@ import (
 	"testing"
 )
 
+func TestForDir(t *testing.T) {
+	useTemp(t)
+
+	if _, err := Create("My Project", ""); err != nil {
+		t.Fatal(err)
+	}
+	base, _ := BaseDir()
+	wsDir := filepath.Join(base, "my-project")
+
+	tests := []struct {
+		name    string
+		dir     string
+		wantCfg string // expected cfg.Name, empty means expect error
+	}{
+		{"workstream root", wsDir, "My Project"},
+		{"subdirectory", filepath.Join(wsDir, "a", "b", "c"), "My Project"},
+		{"base dir itself", base, ""},
+		{"outside workstreams", "/tmp", ""},
+		{"sibling path traversal", filepath.Join(base, "..", "other"), ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg, err := ForDir(tt.dir)
+			if tt.wantCfg == "" {
+				if err == nil {
+					t.Errorf("ForDir(%q) = %v, want error", tt.dir, cfg)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ForDir(%q) error = %v", tt.dir, err)
+			}
+			if cfg.Name != tt.wantCfg {
+				t.Errorf("cfg.Name = %q, want %q", cfg.Name, tt.wantCfg)
+			}
+		})
+	}
+}
+
 func useTemp(t *testing.T) {
 	t.Helper()
 	baseDirOverride = t.TempDir()
