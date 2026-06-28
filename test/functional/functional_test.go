@@ -19,7 +19,20 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 )
 
-const containerBin = "/usr/local/bin/workstreams"
+const (
+	containerBin     = "/usr/local/bin/workstreams"
+	containerWrapper = "/usr/local/share/workstreams.sh"
+	wsSentinel       = "__WS_DONE__"
+)
+
+// result holds the observable outcome of running a workstreams command via the shell wrapper.
+type result struct {
+	Stdout      string // stdout from the command (sentinel line stripped)
+	Stderr      string // stderr, retained for diagnostic use in t.Fatalf messages
+	ExitCode    int
+	DirAfter    string // working directory after the command completes; empty if the shell exited
+	ShellExited bool   // true if the wrapper called exit (no-arg rm)
+}
 
 var globalCtr testcontainers.Container
 
@@ -52,6 +65,11 @@ func TestMain(m *testing.M) {
 
 	if err := globalCtr.CopyFileToContainer(ctx, binPath, containerBin, 0755); err != nil {
 		fmt.Fprintf(os.Stderr, "copy binary: %v\n", err)
+		os.Exit(1)
+	}
+
+	if err := globalCtr.CopyFileToContainer(ctx, "../../workstreams.sh", containerWrapper, 0644); err != nil {
+		fmt.Fprintf(os.Stderr, "copy workstreams.sh: %v\n", err)
 		os.Exit(1)
 	}
 
@@ -90,43 +108,70 @@ func (e *testEnv) writeFile(t *testing.T, path, content string) {
 	))
 }
 
-// result holds captured output from a single command execution.
-type result struct {
-	Stdout   string
-	Stderr   string
-	ExitCode int
-}
-
-// run executes the workstreams binary in the container.
-// cwd sets the working directory inside the container (empty = default).
+// run executes a workstreams command via the shell wrapper inside the container and returns
+// the observable outcome: stdout, exit code, working directory after the command, and whether
+// the wrapper caused the shell to exit. cwd is the working directory to start from
+// (empty defaults to homeDir).
 func (e *testEnv) run(t *testing.T, cwd string, args ...string) result {
 	t.Helper()
-	outFile := e.tmpDir + "/stdout"
-	errFile := e.tmpDir + "/stderr"
+
+	outFile    := e.tmpDir + "/stdout"
+	errFile    := e.tmpDir + "/stderr"
+	dirFile    := e.tmpDir + "/dirafter"
+	exitFile   := e.tmpDir + "/exit"
+	scriptFile := e.tmpDir + "/run.sh"
+
+	startDir := e.homeDir
+	if cwd != "" {
+		startDir = cwd
+	}
 
 	var quotedArgs []string
 	for _, a := range args {
-		quotedArgs = append(quotedArgs, "'"+strings.ReplaceAll(a, "'", `'\''`)+"'")
+		quotedArgs = append(quotedArgs, `'`+strings.ReplaceAll(a, `'`, `'\''`)+`'`)
 	}
 
-	var script string
-	if cwd != "" {
-		script = fmt.Sprintf("cd %s && HOME=%s %s %s >%s 2>%s; echo $? >%s/exit",
-			cwd, e.homeDir, containerBin, strings.Join(quotedArgs, " "), outFile, errFile, e.tmpDir)
-	} else {
-		script = fmt.Sprintf("HOME=%s %s %s >%s 2>%s; echo $? >%s/exit",
-			e.homeDir, containerBin, strings.Join(quotedArgs, " "), outFile, errFile, e.tmpDir)
-	}
+	// The script sources the wrapper so the workstreams shell function handles cd and exit.
+	// After the command, we echo a sentinel and capture pwd. If the wrapper called exit,
+	// neither line runs, so ShellExited=true and DirAfter is empty.
+	script := strings.Join([]string{
+		"#!/usr/bin/env bash",
+		"export HOME=" + e.homeDir,
+		"export PATH=/usr/local/bin:$PATH",
+		"source " + containerWrapper,
+		"cd " + startDir,
+		"workstreams " + strings.Join(quotedArgs, " "),
+		"echo " + wsSentinel,
+		"pwd > " + dirFile,
+	}, "\n")
 
-	containerShell(t, script)
+	e.writeFile(t, scriptFile, script)
+	containerShell(t, fmt.Sprintf(
+		"bash %s >%s 2>%s; echo $? >%s",
+		scriptFile, outFile, errFile, exitFile,
+	))
 
-	exitStr := strings.TrimSpace(containerShell(t, "cat "+e.tmpDir+"/exit"))
+	exitStr  := strings.TrimSpace(containerShell(t, "cat "+exitFile+" 2>/dev/null || true"))
 	exitCode, _ := strconv.Atoi(exitStr)
 
+	rawOut   := containerShell(t, "cat "+outFile+" 2>/dev/null || true")
+	stderr   := strings.TrimSpace(containerShell(t, "cat "+errFile+" 2>/dev/null || true"))
+	dirAfter := strings.TrimSpace(containerShell(t, "cat "+dirFile+" 2>/dev/null || true"))
+
+	shellExited := !strings.Contains(rawOut, wsSentinel)
+	var kept []string
+	for _, line := range strings.Split(rawOut, "\n") {
+		if strings.TrimSpace(line) != wsSentinel {
+			kept = append(kept, line)
+		}
+	}
+
 	return result{
-		Stdout:   strings.TrimSpace(containerShell(t, "cat "+outFile+" 2>/dev/null || true")),
-		Stderr:   strings.TrimSpace(containerShell(t, "cat "+errFile+" 2>/dev/null || true")),
-		ExitCode: exitCode,
+		Stdout:      strings.TrimSpace(strings.Join(kept, "\n")),
+		Stderr:      stderr,
+		ExitCode:    exitCode,
+		DirAfter:    dirAfter,
+		ShellExited: shellExited,
 	}
 }
 
@@ -153,27 +198,6 @@ func (e *testEnv) readFile(t *testing.T, path string) string {
 	return containerShell(t, "cat "+path)
 }
 
-// extractChdir returns the path from the first WS_CHDIR:<path> line in s, or empty string.
-func extractChdir(s string) string {
-	for _, line := range strings.Split(s, "\n") {
-		line = strings.TrimSpace(line)
-		if after, ok := strings.CutPrefix(line, "WS_CHDIR:"); ok {
-			return after
-		}
-	}
-	return ""
-}
-
-// hasWsExit reports whether s contains a WS_EXIT line.
-func hasWsExit(s string) bool {
-	for _, line := range strings.Split(s, "\n") {
-		if strings.TrimSpace(line) == "WS_EXIT" {
-			return true
-		}
-	}
-	return false
-}
-
 func containerShell(t *testing.T, script string) string {
 	t.Helper()
 	_, reader, err := globalCtr.Exec(context.Background(), []string{"sh", "-c", script})
@@ -184,7 +208,6 @@ func containerShell(t *testing.T, script string) string {
 	if err != nil {
 		t.Fatalf("reading container output: %v", err)
 	}
-	// Strip Docker multiplexing header bytes if present.
 	return strings.TrimSpace(stripDockerHeader(data))
 }
 
@@ -236,7 +259,7 @@ func TestAdd(t *testing.T) {
 
 			if tt.wantErr {
 				if res.ExitCode == 0 {
-					t.Errorf("expected error exit, got 0; stdout=%q stderr=%q", res.Stdout, res.Stderr)
+					t.Errorf("expected error exit, got 0; stdout=%q", res.Stdout)
 				}
 				return
 			}
@@ -261,8 +284,8 @@ func TestAdd(t *testing.T) {
 				t.Errorf("config.yaml name does not contain %q: %q", tt.displayName, cfg)
 			}
 
-			if gotChdir := extractChdir(res.Stderr); gotChdir != wantDir {
-				t.Errorf("WS_CHDIR path = %q, want %q (full stderr: %q)", gotChdir, wantDir, res.Stderr)
+			if res.DirAfter != wantDir {
+				t.Errorf("directory after add = %q, want %q", res.DirAfter, wantDir)
 			}
 		})
 	}
@@ -302,7 +325,7 @@ func TestSwitch(t *testing.T) {
 
 			if tt.wantErr {
 				if res.ExitCode == 0 {
-					t.Errorf("expected error, got 0; stderr=%q", res.Stderr)
+					t.Errorf("expected error, got 0; stdout=%q", res.Stdout)
 				}
 				return
 			}
@@ -311,10 +334,9 @@ func TestSwitch(t *testing.T) {
 				t.Fatalf("switch failed: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 			}
 
-			wantChdir := env.workstreamDir(tt.switch_)
-			gotChdir := extractChdir(res.Stderr)
-			if gotChdir != wantChdir {
-				t.Errorf("WS_CHDIR path = %q, want %q (full stderr: %q)", gotChdir, wantChdir, res.Stderr)
+			wantDir := env.workstreamDir(tt.switch_)
+			if res.DirAfter != wantDir {
+				t.Errorf("directory after switch = %q, want %q", res.DirAfter, wantDir)
 			}
 		})
 	}
@@ -338,7 +360,7 @@ func TestTypesAdd(t *testing.T) {
 
 			if tt.wantErr {
 				if res.ExitCode == 0 {
-					t.Errorf("expected error exit, got 0; stdout=%q stderr=%q", res.Stdout, res.Stderr)
+					t.Errorf("expected error exit, got 0; stdout=%q", res.Stdout)
 				}
 				return
 			}
@@ -399,7 +421,7 @@ func TestTypesRm(t *testing.T) {
 			res := env.run(t, "", "types", "rm", tt.rm)
 			if tt.wantErr {
 				if res.ExitCode == 0 {
-					t.Errorf("expected error, got 0; stderr=%q", res.Stderr)
+					t.Errorf("expected error, got 0; stdout=%q", res.Stdout)
 				}
 				return
 			}
@@ -432,8 +454,8 @@ func TestAddWithType(t *testing.T) {
 	if !strings.Contains(cfg, "my-type") {
 		t.Errorf("config.yaml missing type field: %q", cfg)
 	}
-	if gotChdir := extractChdir(res.Stderr); gotChdir != wantDir {
-		t.Errorf("WS_CHDIR = %q, want %q", gotChdir, wantDir)
+	if res.DirAfter != wantDir {
+		t.Errorf("directory after add = %q, want %q", res.DirAfter, wantDir)
 	}
 }
 
@@ -457,9 +479,8 @@ func TestSyncInitHook(t *testing.T) {
 	if res.ExitCode != 0 {
 		t.Fatalf("add failed: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 	}
-	combined := res.Stdout + res.Stderr
-	if !strings.Contains(combined, "SYNC_MARKER") {
-		t.Errorf("SYNC_MARKER not in output; stdout=%q stderr=%q", res.Stdout, res.Stderr)
+	if !strings.Contains(res.Stdout, "SYNC_MARKER") {
+		t.Errorf("SYNC_MARKER not in stdout: %q", res.Stdout)
 	}
 }
 
@@ -505,9 +526,8 @@ func TestLoadHook(t *testing.T) {
 	if res.ExitCode != 0 {
 		t.Fatalf("switch failed: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 	}
-	combined := res.Stdout + res.Stderr
-	if !strings.Contains(combined, "LOAD_MARKER") {
-		t.Errorf("LOAD_MARKER not in output; stdout=%q stderr=%q", res.Stdout, res.Stderr)
+	if !strings.Contains(res.Stdout, "LOAD_MARKER") {
+		t.Errorf("LOAD_MARKER not in stdout: %q", res.Stdout)
 	}
 }
 
@@ -518,9 +538,9 @@ func TestRemove(t *testing.T) {
 		remove     string
 		fromInside bool
 		wantErr    bool
-		wantChdir  string // "base", "none", or ""
+		wantDir    string // expected DirAfter: "base", "home", or ""
 	}{
-		{"existing workstream", "My Project", "my-project", false, false, "none"},
+		{"existing workstream", "My Project", "my-project", false, false, "home"},
 		{"nonexistent workstream", "", "ghost", false, true, ""},
 		{"from inside workstream", "My Project", "my-project", true, false, "base"},
 	}
@@ -542,7 +562,7 @@ func TestRemove(t *testing.T) {
 
 			if tt.wantErr {
 				if res.ExitCode == 0 {
-					t.Errorf("expected error, got 0; stderr=%q", res.Stderr)
+					t.Errorf("expected error, got 0; stdout=%q", res.Stdout)
 				}
 				return
 			}
@@ -550,20 +570,19 @@ func TestRemove(t *testing.T) {
 			if res.ExitCode != 0 {
 				t.Fatalf("remove failed: stdout=%q stderr=%q", res.Stdout, res.Stderr)
 			}
-
 			if env.fileExists(t, env.workstreamDir(tt.remove)) {
 				t.Errorf("workstream dir still exists after remove")
 			}
 
-			switch tt.wantChdir {
+			switch tt.wantDir {
 			case "base":
-				wantBase := env.homeDir + "/workstreams"
-				if gotChdir := extractChdir(res.Stderr); gotChdir != wantBase {
-					t.Errorf("WS_CHDIR path = %q, want %q (full stderr: %q)", gotChdir, wantBase, res.Stderr)
+				want := env.homeDir + "/workstreams"
+				if res.DirAfter != want {
+					t.Errorf("directory after remove = %q, want %q", res.DirAfter, want)
 				}
-			case "none":
-				if got := extractChdir(res.Stderr); got != "" {
-					t.Errorf("unexpected WS_CHDIR %q in stderr", got)
+			case "home":
+				if res.DirAfter != env.homeDir {
+					t.Errorf("directory after remove = %q, want %q (homeDir)", res.DirAfter, env.homeDir)
 				}
 			}
 		})
@@ -573,12 +592,12 @@ func TestRemove(t *testing.T) {
 func TestRemoveCurrent(t *testing.T) {
 	tests := []struct {
 		name    string
-		cwd     string // relative to workstream dir, empty = workstream root
+		subdir  string // path relative to workstream dir to cd into (empty = root)
 		wantErr bool
 	}{
 		{"from workstream root", "", false},
 		{"from subdirectory", "src/pkg", false},
-		{"outside workstream", "outside", true},
+		{"outside workstream", "", true}, // uses homeDir as cwd, not wsDir
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -591,12 +610,11 @@ func TestRemoveCurrent(t *testing.T) {
 
 			var cwd string
 			if tt.wantErr {
-				// Run from a directory entirely outside ~/workstreams.
 				cwd = env.homeDir
 			} else {
 				cwd = wsDir
-				if tt.cwd != "" {
-					cwd = wsDir + "/" + tt.cwd
+				if tt.subdir != "" {
+					cwd = wsDir + "/" + tt.subdir
 					containerShell(t, "mkdir -p "+cwd)
 				}
 			}
@@ -605,7 +623,7 @@ func TestRemoveCurrent(t *testing.T) {
 
 			if tt.wantErr {
 				if res.ExitCode == 0 {
-					t.Errorf("expected error, got 0; stderr=%q", res.Stderr)
+					t.Errorf("expected error, got 0; stdout=%q", res.Stdout)
 				}
 				return
 			}
@@ -616,11 +634,8 @@ func TestRemoveCurrent(t *testing.T) {
 			if env.fileExists(t, wsDir) {
 				t.Errorf("workstream dir still exists after remove")
 			}
-			if !hasWsExit(res.Stderr) {
-				t.Errorf("WS_EXIT not found in stderr: %q", res.Stderr)
-			}
-			if got := extractChdir(res.Stderr); got != "" {
-				t.Errorf("unexpected WS_CHDIR %q in stderr (should exit, not chdir)", got)
+			if !res.ShellExited {
+				t.Errorf("expected shell to exit after removing current workstream, but it continued (DirAfter=%q)", res.DirAfter)
 			}
 		})
 	}
@@ -628,14 +643,14 @@ func TestRemoveCurrent(t *testing.T) {
 
 func TestCurrent(t *testing.T) {
 	tests := []struct {
-		name        string
-		cwd         string // relative to workstream dir, empty = workstream root
-		wantName    string
-		wantErr     bool
+		name     string
+		subdir   string // path relative to workstream dir (empty = root)
+		wantName string
+		wantErr  bool
 	}{
 		{"from workstream root", "", "My Project", false},
 		{"from subdirectory", "some/nested/dir", "My Project", false},
-		{"outside workstream", "outside", "", true},
+		{"outside workstream", "", "", true}, // uses homeDir as cwd
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -651,8 +666,8 @@ func TestCurrent(t *testing.T) {
 				cwd = env.homeDir
 			} else {
 				cwd = wsDir
-				if tt.cwd != "" {
-					cwd = wsDir + "/" + tt.cwd
+				if tt.subdir != "" {
+					cwd = wsDir + "/" + tt.subdir
 					containerShell(t, "mkdir -p "+cwd)
 				}
 			}
