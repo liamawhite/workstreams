@@ -16,7 +16,7 @@ var currentCmd = &cobra.Command{
 		if err != nil {
 			return fmt.Errorf("getting current directory: %w", err)
 		}
-		cfg, err := workstreams.ForDir(cwd)
+		_, cfg, err := workstreams.ForDir(cwd)
 		if err != nil {
 			return err
 		}

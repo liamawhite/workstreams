@@ -10,17 +10,33 @@ import (
 )
 
 var removeCmd = &cobra.Command{
-	Use:     "remove <name>",
+	Use:     "remove [name]",
 	Aliases: []string{"rm"},
-	Short:   "Remove a workstream",
-	Args:    cobra.ExactArgs(1),
+	Short:   "Remove a workstream (defaults to the current workstream)",
+	Args:    cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		name := args[0]
-		dir, err := workstreams.WorkstreamDir(name)
+		cwd, err := os.Getwd()
 		if err != nil {
 			return err
 		}
-		cwd, err := os.Getwd()
+
+		// No arg: remove whichever workstream cwd is inside, then exit the shell.
+		if len(args) == 0 {
+			dirName, cfg, err := workstreams.ForDir(cwd)
+			if err != nil {
+				return err
+			}
+			if err := workstreams.Delete(dirName); err != nil {
+				return err
+			}
+			fmt.Printf("Removed workstream %q\n", cfg.Name)
+			fmt.Fprintln(os.Stderr, "WS_EXIT")
+			return nil
+		}
+
+		// Named removal: existing behaviour.
+		name := args[0]
+		dir, err := workstreams.WorkstreamDir(name)
 		if err != nil {
 			return err
 		}
