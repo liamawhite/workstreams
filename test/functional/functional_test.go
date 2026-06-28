@@ -164,6 +164,16 @@ func extractChdir(s string) string {
 	return ""
 }
 
+// hasWsExit reports whether s contains a WS_EXIT line.
+func hasWsExit(s string) bool {
+	for _, line := range strings.Split(s, "\n") {
+		if strings.TrimSpace(line) == "WS_EXIT" {
+			return true
+		}
+	}
+	return false
+}
+
 func containerShell(t *testing.T, script string) string {
 	t.Helper()
 	_, reader, err := globalCtr.Exec(context.Background(), []string{"sh", "-c", script})
@@ -555,6 +565,112 @@ func TestRemove(t *testing.T) {
 				if got := extractChdir(res.Stderr); got != "" {
 					t.Errorf("unexpected WS_CHDIR %q in stderr", got)
 				}
+			}
+		})
+	}
+}
+
+func TestRemoveCurrent(t *testing.T) {
+	tests := []struct {
+		name    string
+		cwd     string // relative to workstream dir, empty = workstream root
+		wantErr bool
+	}{
+		{"from workstream root", "", false},
+		{"from subdirectory", "src/pkg", false},
+		{"outside workstream", "outside", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newTestEnv(t)
+			wsDir := env.workstreamDir("my-project")
+
+			if res := env.run(t, "", "add", "My Project"); res.ExitCode != 0 {
+				t.Fatalf("setup add failed: %s", res.Stderr)
+			}
+
+			var cwd string
+			if tt.wantErr {
+				// Run from a directory entirely outside ~/workstreams.
+				cwd = env.homeDir
+			} else {
+				cwd = wsDir
+				if tt.cwd != "" {
+					cwd = wsDir + "/" + tt.cwd
+					containerShell(t, "mkdir -p "+cwd)
+				}
+			}
+
+			res := env.run(t, cwd, "remove")
+
+			if tt.wantErr {
+				if res.ExitCode == 0 {
+					t.Errorf("expected error, got 0; stderr=%q", res.Stderr)
+				}
+				return
+			}
+
+			if res.ExitCode != 0 {
+				t.Fatalf("remove failed: stdout=%q stderr=%q", res.Stdout, res.Stderr)
+			}
+			if env.fileExists(t, wsDir) {
+				t.Errorf("workstream dir still exists after remove")
+			}
+			if !hasWsExit(res.Stderr) {
+				t.Errorf("WS_EXIT not found in stderr: %q", res.Stderr)
+			}
+			if got := extractChdir(res.Stderr); got != "" {
+				t.Errorf("unexpected WS_CHDIR %q in stderr (should exit, not chdir)", got)
+			}
+		})
+	}
+}
+
+func TestCurrent(t *testing.T) {
+	tests := []struct {
+		name        string
+		cwd         string // relative to workstream dir, empty = workstream root
+		wantName    string
+		wantErr     bool
+	}{
+		{"from workstream root", "", "My Project", false},
+		{"from subdirectory", "some/nested/dir", "My Project", false},
+		{"outside workstream", "outside", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			env := newTestEnv(t)
+			wsDir := env.workstreamDir("my-project")
+
+			if res := env.run(t, "", "add", "My Project"); res.ExitCode != 0 {
+				t.Fatalf("setup add failed: %s", res.Stderr)
+			}
+
+			var cwd string
+			if tt.wantErr {
+				cwd = env.homeDir
+			} else {
+				cwd = wsDir
+				if tt.cwd != "" {
+					cwd = wsDir + "/" + tt.cwd
+					containerShell(t, "mkdir -p "+cwd)
+				}
+			}
+
+			res := env.run(t, cwd, "current")
+
+			if tt.wantErr {
+				if res.ExitCode == 0 {
+					t.Errorf("expected error, got 0; stdout=%q", res.Stdout)
+				}
+				return
+			}
+
+			if res.ExitCode != 0 {
+				t.Fatalf("current failed: stdout=%q stderr=%q", res.Stdout, res.Stderr)
+			}
+			if res.Stdout != tt.wantName {
+				t.Errorf("output = %q, want %q", res.Stdout, tt.wantName)
 			}
 		})
 	}
