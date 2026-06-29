@@ -115,10 +115,10 @@ func (e *testEnv) writeFile(t *testing.T, path, content string) {
 func (e *testEnv) run(t *testing.T, cwd string, args ...string) result {
 	t.Helper()
 
-	outFile    := e.tmpDir + "/stdout"
-	errFile    := e.tmpDir + "/stderr"
-	dirFile    := e.tmpDir + "/dirafter"
-	exitFile   := e.tmpDir + "/exit"
+	outFile := e.tmpDir + "/stdout"
+	errFile := e.tmpDir + "/stderr"
+	dirFile := e.tmpDir + "/dirafter"
+	exitFile := e.tmpDir + "/exit"
 	scriptFile := e.tmpDir + "/run.sh"
 
 	startDir := e.homeDir
@@ -155,11 +155,11 @@ func (e *testEnv) run(t *testing.T, cwd string, args ...string) result {
 		scriptFile, outFile, errFile, exitFile,
 	))
 
-	exitStr  := strings.TrimSpace(containerShell(t, "cat "+exitFile+" 2>/dev/null || true"))
+	exitStr := strings.TrimSpace(containerShell(t, "cat "+exitFile+" 2>/dev/null || true"))
 	exitCode, _ := strconv.Atoi(exitStr)
 
-	rawOut   := containerShell(t, "cat "+outFile+" 2>/dev/null || true")
-	stderr   := strings.TrimSpace(containerShell(t, "cat "+errFile+" 2>/dev/null || true"))
+	rawOut := containerShell(t, "cat "+outFile+" 2>/dev/null || true")
+	stderr := strings.TrimSpace(containerShell(t, "cat "+errFile+" 2>/dev/null || true"))
 	dirAfter := strings.TrimSpace(containerShell(t, "cat "+dirFile+" 2>/dev/null || true"))
 
 	shellExited := !strings.Contains(rawOut, wsSentinel)
