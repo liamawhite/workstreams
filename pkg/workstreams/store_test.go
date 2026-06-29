@@ -28,7 +28,7 @@ func TestForDir(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cfg, err := ForDir(tt.dir)
+			dirName, cfg, err := ForDir(tt.dir)
 			if tt.wantCfg == "" {
 				if err == nil {
 					t.Errorf("ForDir(%q) = %v, want error", tt.dir, cfg)
@@ -40,6 +40,9 @@ func TestForDir(t *testing.T) {
 			}
 			if cfg.Name != tt.wantCfg {
 				t.Errorf("cfg.Name = %q, want %q", cfg.Name, tt.wantCfg)
+			}
+			if dirName != "my-project" {
+				t.Errorf("dirName = %q, want %q", dirName, "my-project")
 			}
 		})
 	}

@@ -29,14 +29,19 @@ workstreams() {
         command workstreams "$@" 2> >(tee "$temp_file" >&2)
         local exit_code=$?
 
-        # Look for directory change indicator in stderr
-        local target_dir
+        # Look for directory change or exit indicators in stderr
+        local target_dir should_exit
         target_dir=$(grep "^WS_CHDIR:" "$temp_file" 2>/dev/null | sed 's/^WS_CHDIR://')
+        should_exit=$(grep "^WS_EXIT$" "$temp_file" 2>/dev/null)
 
         rm -f "$temp_file"
 
         if [[ -n "$target_dir" && -d "$target_dir" ]]; then
             cd "$target_dir" || echo "Warning: Failed to change to directory: $target_dir"
+        fi
+
+        if [[ -n "$should_exit" ]]; then
+            exit $exit_code
         fi
 
         return $exit_code

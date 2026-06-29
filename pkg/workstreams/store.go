@@ -151,19 +151,20 @@ func ReadConfig(name string) (*Config, error) {
 	return &cfg, nil
 }
 
-// ForDir returns the config of the workstream that contains dir.
+// ForDir returns the directory name and config of the workstream that contains dir.
 // dir must be inside ~/workstreams/<name> (at any depth); returns an error otherwise.
-func ForDir(dir string) (*Config, error) {
+func ForDir(dir string) (string, *Config, error) {
 	base, err := BaseDir()
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	rel, err := filepath.Rel(base, dir)
 	if err != nil || strings.HasPrefix(rel, "..") || rel == "." {
-		return nil, errors.New("not inside a workstream directory")
+		return "", nil, errors.New("not inside a workstream directory")
 	}
 	name := strings.SplitN(rel, string(os.PathSeparator), 2)[0]
-	return ReadConfig(name)
+	cfg, err := ReadConfig(name)
+	return name, cfg, err
 }
 
 // Delete removes the workstream directory. Returns an error if it does not exist.
